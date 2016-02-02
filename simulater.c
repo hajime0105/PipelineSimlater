@@ -11,7 +11,10 @@
 #define MUL 5
 #define DIV 6
 
-void change_idex(int ifid_reg, int *idex_reg) {
+int Mem[MEM_NUM];
+int Reg[REG_NUM];
+
+void decode(int ifid_reg, int *decode_result) {
   int data[10];
   int index_num = 0;
   int i;
@@ -26,12 +29,12 @@ void change_idex(int ifid_reg, int *idex_reg) {
     }
     int j = 0;
     for(i = index_num; i >= 0 ; i--, j++){
-      idex_reg[j] = data[i];
+      decode_result[j] = data[i];
     }
   }
   else {
     for (i = 0; i < 4; i++) {
-      idex_reg[i] = ifid_reg;
+      decode_result[i] = ifid_reg;
     }
   }
 }
@@ -48,37 +51,37 @@ void replace_idex(int *idex_reg) {
   idex_reg[2] = tmp;
 }
 /*
-void alu_load(int *idex_reg, int *exmem_reg, int *Mem, int *Reg) {
+void alu_load(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Mem[idex_reg[1]];
   Reg[idex_reg[2]] = exmem_reg[1];
 }
 
-void alu_store(int *idex_reg, int *exmem_reg, int *Mem, int *Reg) {
+void alu_store(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Reg[idex_reg[1]];
   Mem[idex_reg[2]] = exmem_reg[1];
 }
 */
-void alu_add(int *idex_reg, int *exmem_reg, int *Reg) {
+void alu_add(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Reg[idex_reg[1]] + Reg[idex_reg[2]];
   Reg[idex_reg[3]] = exmem_reg[1];
 }
 
-void alu_sub(int *idex_reg, int *exmem_reg, int *Reg) {
+void alu_sub(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Reg[idex_reg[1]] - Reg[idex_reg[2]];
   Reg[idex_reg[3]] = exmem_reg[1];
 }
 
-void alu_mul(int *idex_reg, int *exmem_reg, int *Reg) {
+void alu_mul(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Reg[idex_reg[1]] * Reg[idex_reg[2]];
   Reg[idex_reg[3]] = exmem_reg[1];
 }
 
-void alu_div(int *idex_reg, int *exmem_reg, int *Reg) {
+void alu_div(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = Reg[idex_reg[1]] / Reg[idex_reg[2]];
   Reg[idex_reg[3]] = exmem_reg[1];
 }
 
-void calc_exmem(int *idex_reg, int *exmem_reg, int *Mem, int *Reg) {
+void calc_exmem(int *idex_reg, int *exmem_reg) {
   exmem_reg[0] = idex_reg[0];
   exmem_reg[2] = idex_reg[3];
   switch (idex_reg[0]) {
@@ -91,16 +94,16 @@ void calc_exmem(int *idex_reg, int *exmem_reg, int *Mem, int *Reg) {
       //alu_store(idex_reg, exmem_reg, Mem, Reg);
       break;
     case ADD:
-      alu_add(idex_reg, exmem_reg, Reg);
+      alu_add(idex_reg, exmem_reg);
       break;
     case SUB:
-      alu_sub(idex_reg, exmem_reg, Reg);
+      alu_sub(idex_reg, exmem_reg);
       break;
     case MUL:
-      alu_mul(idex_reg, exmem_reg, Reg);
+      alu_mul(idex_reg, exmem_reg);
       break;
     case DIV:
-      alu_div(idex_reg, exmem_reg, Reg);
+      alu_div(idex_reg, exmem_reg);
       break;
   }
 }
@@ -112,7 +115,7 @@ void result_memwb(int *exmem_reg, int *memwb_reg) {
   }
 }
 
-void dispReg(int Reg[]) {
+void dispReg() {
   int i;
   for (i = 0; i < 16; i++) {
     printf("Reg[%2d]:%d ", i, Reg[i]);
@@ -122,15 +125,37 @@ void dispReg(int Reg[]) {
   }
 }
 
+void IFstage(int *ifid_reg, int *pc) {
+  ifid_reg[0] = Mem[pc];
+  pc++;
+  //命令終了なら実効ループをぬける
+}
+
+void IDstage(int ifid_reg, int *idex_reg) {
+  int decode_result[4];
+  decode(ifid_reg, decode_result);
+  decode_result[0];
+}
+
+void EXstage() {
+}
+
+void MEMstage() {
+}
+
+void WBstage() {
+}
+
+
 int main(void)
 {
-  int Mem[MEM_NUM];
-  int Reg[REG_NUM];
   int ifid_reg[1];
   int idex_reg[4];
-  int exmem_reg[3];
-  int memwb_reg[3];
+  int exmem_reg[4];
+  int memwb_reg[4];
   int i;
+  int pc;
+  itn flag;
 
 
   //Q1
@@ -143,15 +168,16 @@ int main(void)
   Mem[0] = 4126;
   Mem[30] = 212;
 */
-  for (i = 0; i < MEM_NUM; i++) {
-    ifid_reg[0] = Mem[i];
-    change_idex(ifid_reg[0], idex_reg);
-    replace_idex(idex_reg);
-    calc_exmem(idex_reg, exmem_reg, Mem, Reg);
-    result_memwb(exmem_reg, memwb_reg);
+  flag = 1;
+  pc = 0;
+  while (flag != 0) {
+    IFstage(ifid_reg, &pc);
+    IDstage();
+    EXstage();
+    MEMstage();
+    WBstage();
   }
-
-  dispReg(Reg);
+  dispReg();
 
   return 0;
 }
