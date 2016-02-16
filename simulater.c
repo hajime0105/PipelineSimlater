@@ -22,7 +22,6 @@ void IFstage(int *ifid_reg) {
 }
 
 void IDstage(int *ifid_reg, int *idex_reg) {
-  int decode_result[4];
   int op, rd, rs, rt, mem;
 
   op = (*ifid_reg >> 12) & 0x0f;
@@ -35,28 +34,28 @@ void IDstage(int *ifid_reg, int *idex_reg) {
       rd = (*ifid_reg >> 8) & 0x0f;
       rs = (*ifid_reg >> 4) & 0x0f;
       rt = (*ifid_reg) & 0x0f;
-      idex_reg[1] = Reg[rs];
-      idex_reg[2] = Reg[rt];
-      idex_reg[3] = rd;
+      idex_reg[1] = Reg[rs];  // P1
+      idex_reg[2] = Reg[rt];  // P2
+      idex_reg[3] = rd;       // 計算結果
       break;
     case LOAD:
       rd = (*ifid_reg) & 0xff;
       mem = (*ifid_reg >> 8)  & 0x0f;
-      idex_reg[1] = mem;
+      idex_reg[1] = mem;      // 読み込むメモリアドレス
       idex_reg[2] = 0;
-      idex_reg[3] = rd;
+      idex_reg[3] = rd;       // 読み込んだ値を格納するレジスタ
       break;
     case STORE:
       rt = (*ifid_reg >> 8) & 0x0f;
       mem = (*ifid_reg) & 0xff;
-      idex_reg[1] = 0;
+      idex_reg[1] = mem;
       idex_reg[2] = Reg[rt];
-      idex_reg[3] = mem;
+      idex_reg[3] = 0;
       break;
     case NONE:
       break;
   }
-  printf("0:%2d , 1:%2d , 2:%2d , 3:%2d\n", idex_reg[0], idex_reg[1], idex_reg[2], idex_reg[3]);
+  printf("idex  0:%2d , 1:%2d , 2:%2d , 3:%2d\n", idex_reg[0], idex_reg[1], idex_reg[2], idex_reg[3]);
 }
 
 void EXstage(int *idex_reg, int *exmem_reg) {
@@ -83,12 +82,13 @@ void EXstage(int *idex_reg, int *exmem_reg) {
   exmem_reg[1] = result;
   exmem_reg[2] = idex_reg[2];
   exmem_reg[3] = idex_reg[3];
+  printf("exmem 0:%2d , 1:%2d , 2:%2d , 3:%2d\n", exmem_reg[0], exmem_reg[1], exmem_reg[2], exmem_reg[3]);
 }
 
 void MEMstage(int *exmem_reg, int *memwb_reg) {
   switch (exmem_reg[0]) {
     case LOAD:
-      memwb_reg[2] = Mem[exmem_reg[1]];
+      memwb_reg[2] = Mem[exmem_reg[3]];
       break;
     case STORE:
       Mem[exmem_reg[1]] = exmem_reg[2];
@@ -97,15 +97,19 @@ void MEMstage(int *exmem_reg, int *memwb_reg) {
   memwb_reg[0] = exmem_reg[0];
   memwb_reg[1] = exmem_reg[1];
   memwb_reg[3] = exmem_reg[3];
+  printf("0:%2d , 1:%2d , 2:%2d , 3:%2d\n", memwb_reg[0], memwb_reg[1], memwb_reg[2], memwb_reg[3]);
 }
 
 void WBstage(int *memwb_reg) {
   switch (memwb_reg[0]) {
-    case LOAD:
-      Mem[memwb_reg[3]] = memwb_reg[2];
+    case ADD:
+    case SUB:
+    case MUL:
+    case DIV:
+      Reg[memwb_reg[3]] = memwb_reg[1];
       break;
-    case STORE:
-      Mem[memwb_reg[3]] = memwb_reg[1];
+    case LOAD:
+      Reg[memwb_reg[3]] = memwb_reg[2];
       break;
   }
 }
@@ -126,16 +130,30 @@ int main(void)
   int idex_reg[4];
   int exmem_reg[4];
   int memwb_reg[4];
+  int mem_count = 5;  //命令数
   int i;
-  int mem_count = 1;
+
   //Q1
-  Mem[0] = 12801;
-  Reg[0] = 1;
-  Reg[1] = 2;
+  //Mem[0] = 12801;
+  //Reg[0] = 1;
+  //Reg[1] = 2;
 
   //Q2
   //Mem[0] = 4126;
   //Mem[30] = 212;
+
+  //Q3
+  Mem[0] = 14593;
+  Mem[1] = 23186;
+  Mem[2] = 27555;
+  Mem[3] = 19636;
+  Mem[4] = 0x150a;
+  Mem[5] = 0x2008;
+  Reg[0] = 17;
+  Reg[1] = 1;
+  Reg[2] = 3;
+  Reg[3] = 2;
+  Reg[4] = 23;
 
   for (i = 0; i < mem_count; i++) {
     IFstage(ifid_reg);
