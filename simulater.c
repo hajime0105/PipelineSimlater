@@ -3,149 +3,122 @@
 #define MEM_NUM 100
 #define REG_NUM 16
 
-#define NONE 0
-#define LOAD 1
+#define NONE  0
+#define LOAD  1
 #define STORE 2
-#define ADD 3
-#define SUB 4
-#define MUL 5
-#define DIV 6
+#define ADD   3
+#define SUB   4
+#define MUL   5
+#define DIV   6
 
 int Mem[MEM_NUM];
 int Reg[REG_NUM];
 
-void decode(int ifid_reg, int *decode_result) {
-  int data[10];
-  int index_num = 0;
-  int i;
+int pc = 0;
 
-  if (ifid_reg != 0) {
-    for(i = 0; i< 4; i++){
-      data[i] = ifid_reg % 16 ;
-      if(data[i] != 0){
-        index_num = i;
-      }
-      ifid_reg /= 16;
-    }
-    int j = 0;
-    for(i = index_num; i >= 0 ; i--, j++){
-      decode_result[j] = data[i];
-    }
-  }
-  else {
-    for (i = 0; i < 4; i++) {
-      decode_result[i] = ifid_reg;
-    }
-  }
+void IFstage(int *ifid_reg) {
+  ifid_reg[0] = Mem[pc];
+  pc++;
 }
 
-void replace_idex(int *idex_reg) {
-  int tmp;
+void IDstage(int *ifid_reg, int *idex_reg) {
+  int decode_result[4];
+  int op, rd, rs, rt, mem;
 
-  tmp = idex_reg[1];
-  idex_reg[1] = idex_reg[3];
-  idex_reg[3] = tmp;
-
-  tmp = idex_reg[1];
-  idex_reg[1] = idex_reg[2];
-  idex_reg[2] = tmp;
-}
-/*
-void alu_load(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Mem[idex_reg[1]];
-  Reg[idex_reg[2]] = exmem_reg[1];
-}
-
-void alu_store(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Reg[idex_reg[1]];
-  Mem[idex_reg[2]] = exmem_reg[1];
-}
-*/
-void alu_add(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Reg[idex_reg[1]] + Reg[idex_reg[2]];
-  Reg[idex_reg[3]] = exmem_reg[1];
-}
-
-void alu_sub(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Reg[idex_reg[1]] - Reg[idex_reg[2]];
-  Reg[idex_reg[3]] = exmem_reg[1];
-}
-
-void alu_mul(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Reg[idex_reg[1]] * Reg[idex_reg[2]];
-  Reg[idex_reg[3]] = exmem_reg[1];
-}
-
-void alu_div(int *idex_reg, int *exmem_reg) {
-  exmem_reg[1] = Reg[idex_reg[1]] / Reg[idex_reg[2]];
-  Reg[idex_reg[3]] = exmem_reg[1];
-}
-
-void calc_exmem(int *idex_reg, int *exmem_reg) {
-  exmem_reg[0] = idex_reg[0];
-  exmem_reg[2] = idex_reg[3];
+  op = (*ifid_reg >> 12) & 0x0f;
+  idex_reg[0] = op;
   switch (idex_reg[0]) {
-    case NONE:
+    case ADD:
+    case SUB:
+    case MUL:
+    case DIV:
+      rd = (*ifid_reg >> 8) & 0x0f;
+      rs = (*ifid_reg >> 4) & 0x0f;
+      rt = (*ifid_reg) & 0x0f;
+      idex_reg[1] = Reg[rs];
+      idex_reg[2] = Reg[rt];
+      idex_reg[3] = rd;
       break;
     case LOAD:
-      //alu_load(idex_reg, exmem_reg, Mem, Reg);
+      rd = (*ifid_reg) & 0xff;
+      mem = (*ifid_reg >> 8)  & 0x0f;
+      idex_reg[1] = mem;
+      idex_reg[2] = 0;
+      idex_reg[3] = rd;
       break;
     case STORE:
-      //alu_store(idex_reg, exmem_reg, Mem, Reg);
+      rt = (*ifid_reg >> 8) & 0x0f;
+      mem = (*ifid_reg) & 0xff;
+      idex_reg[1] = 0;
+      idex_reg[2] = Reg[rt];
+      idex_reg[3] = mem;
       break;
-    case ADD:
-      alu_add(idex_reg, exmem_reg);
-      break;
-    case SUB:
-      alu_sub(idex_reg, exmem_reg);
-      break;
-    case MUL:
-      alu_mul(idex_reg, exmem_reg);
-      break;
-    case DIV:
-      alu_div(idex_reg, exmem_reg);
+    case NONE:
       break;
   }
+  printf("0:%2d , 1:%2d , 2:%2d , 3:%2d\n", idex_reg[0], idex_reg[1], idex_reg[2], idex_reg[3]);
 }
 
-void result_memwb(int *exmem_reg, int *memwb_reg) {
-  int i;
-  for (i = 0; i < 3; i++) {
-      exmem_reg[i] = memwb_reg[i];
+void EXstage(int *idex_reg, int *exmem_reg) {
+  int result;
+  switch (idex_reg[0]) {
+    case ADD:
+      result = idex_reg[1] + idex_reg[2];
+      break;
+    case SUB:
+      result = idex_reg[1] - idex_reg[2];
+      break;
+    case MUL:
+      result = idex_reg[1] * idex_reg[2];
+      break;
+    case DIV:
+      result = idex_reg[1] / idex_reg[2];
+      break;
+    case LOAD:
+    case STORE:
+      result = idex_reg[1];
+      break;
+  }
+  exmem_reg[0] = idex_reg[0];
+  exmem_reg[1] = result;
+  exmem_reg[2] = idex_reg[2];
+  exmem_reg[3] = idex_reg[3];
+}
+
+void MEMstage(int *exmem_reg, int *memwb_reg) {
+  switch (exmem_reg[0]) {
+    case LOAD:
+      memwb_reg[2] = Mem[exmem_reg[1]];
+      break;
+    case STORE:
+      Mem[exmem_reg[1]] = exmem_reg[2];
+      break;
+  }
+  memwb_reg[0] = exmem_reg[0];
+  memwb_reg[1] = exmem_reg[1];
+  memwb_reg[3] = exmem_reg[3];
+}
+
+void WBstage(int *memwb_reg) {
+  switch (memwb_reg[0]) {
+    case LOAD:
+      Mem[memwb_reg[3]] = memwb_reg[2];
+      break;
+    case STORE:
+      Mem[memwb_reg[3]] = memwb_reg[1];
+      break;
   }
 }
 
 void dispReg() {
   int i;
   for (i = 0; i < 16; i++) {
-    printf("Reg[%2d]:%d ", i, Reg[i]);
-    if (i % 4 == 3) {
-      printf("\n");
-    }
+    printf("Reg[%2d]:%d\n", i, Reg[i]);
+  }
+  for (i = 0; i < 32; i++) {
+    printf("Mem[%2d]:%d\n", i, Mem[i]);
   }
 }
-
-void IFstage(int *ifid_reg, int *pc) {
-  ifid_reg[0] = Mem[pc];
-  pc++;
-  //命令終了なら実効ループをぬける
-}
-
-void IDstage(int ifid_reg, int *idex_reg) {
-  int decode_result[4];
-  decode(ifid_reg, decode_result);
-  decode_result[0];
-}
-
-void EXstage() {
-}
-
-void MEMstage() {
-}
-
-void WBstage() {
-}
-
 
 int main(void)
 {
@@ -154,28 +127,22 @@ int main(void)
   int exmem_reg[4];
   int memwb_reg[4];
   int i;
-  int pc;
-  itn flag;
-
-
+  int mem_count = 1;
   //Q1
   Mem[0] = 12801;
   Reg[0] = 1;
   Reg[1] = 2;
 
-  /*
   //Q2
-  Mem[0] = 4126;
-  Mem[30] = 212;
-*/
-  flag = 1;
-  pc = 0;
-  while (flag != 0) {
-    IFstage(ifid_reg, &pc);
-    IDstage();
-    EXstage();
-    MEMstage();
-    WBstage();
+  //Mem[0] = 4126;
+  //Mem[30] = 212;
+
+  for (i = 0; i < mem_count; i++) {
+    IFstage(ifid_reg);
+    IDstage(ifid_reg, idex_reg);
+    EXstage(idex_reg, exmem_reg);
+    MEMstage(exmem_reg, memwb_reg);
+    WBstage(memwb_reg);
   }
   dispReg();
 
